@@ -188,7 +188,7 @@ def main():
                     | filters.VIDEO
                     | filters.AUDIO
                     | filters.VOICE
-                    | filters.DOCUMENT,
+                    | filters.Document.ALL,
                     quiz_handler.receive_media,
                 ),
                 CallbackQueryHandler(
