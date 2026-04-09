@@ -294,6 +294,14 @@ class DatabaseManager:
         )
         await self.db.commit()
 
+    async def add_force_channel(self, channel_id, title, username=""):
+        await self.db.execute(
+            """INSERT INTO force_channels (channel_id, channel_title, channel_username) 
+               VALUES (?, ?, ?)""",
+            (str(channel_id), title, username),
+        )
+        await self.db.commit()
+
     async def get_all_channels(self):
         async with self.db.execute("SELECT * FROM channels") as cursor:
             rows = await cursor.fetchall()

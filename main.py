@@ -359,6 +359,9 @@ def main():
         CommandHandler("add_channel", channel_handler.add_channel)
     )
     application.add_handler(
+        CommandHandler("add_force", channel_handler.add_force)
+    )
+    application.add_handler(
         CommandHandler("my_channels", channel_handler.my_channels)
     )
     application.add_handler(
