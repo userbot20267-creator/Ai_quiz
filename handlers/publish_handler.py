@@ -182,47 +182,28 @@ class PublishHandler:
         language = await self._get_language(user.id, context)
 
         quiz_id = context.user_data.get("publish_quiz_id")
-        publish_service = PublishService(context.application)
 
         if context.user_data.get("publish_all_channels"):
             channels = await db.get_user_channels(user.id)
-            channel_ids = [ch["channel_id"] for ch in channels]
-            results = await publish_service.publish_to_multiple_channels(
-                quiz_id, channel_ids
-            )
-
-            success_count = sum(
-                1 for r in results.values() if r["success"]
-            )
-            failed_count = len(results) - success_count
+            for ch in channels:
+                await db.add_to_queue(quiz_id, ch["channel_id"], user.id)
 
             await query.edit_message_text(
-                f"📤 <b>نتائج النشر:</b>\n\n✅ نجح: {success_count}\n❌ فشل: {failed_count}",
+                "✅ تم إضافة الاختبار إلى قائمة الانتظار لجميع قنواتك!\n"
+                "سيتم النشر تلقائياً خلال دقائق.",
                 reply_markup=back_to_menu_keyboard(language),
                 parse_mode=ParseMode.HTML,
             )
         else:
             channel_id = context.user_data.get("publish_channel_id")
-            success, error = await publish_service.publish_quiz(
-                quiz_id, channel_id
-            )
+            await db.add_to_queue(quiz_id, channel_id, user.id)
 
-            if success:
-                channel = await db.get_channel(channel_id)
-                channel_title = channel["title"] if channel else "Unknown"
-                await query.edit_message_text(
-                    get_text("publish_success", language).format(
-                        channel=channel_title
-                    ),
-                    reply_markup=back_to_menu_keyboard(language),
-                    parse_mode=ParseMode.HTML,
-                )
-            else:
-                await query.edit_message_text(
-                    get_text("publish_failed", language).format(error=error),
-                    reply_markup=back_to_menu_keyboard(language),
-                    parse_mode=ParseMode.HTML,
-                )
+            await query.edit_message_text(
+                "✅ تم إضافة الاختبار إلى قائمة الانتظار (Queue) بنجاح!\n"
+                "سيتم النشر تلقائياً خلال دقائق.",
+                reply_markup=back_to_menu_keyboard(language),
+                parse_mode=ParseMode.HTML,
+            )
 
         context.user_data.pop("publish_quiz_id", None)
         context.user_data.pop("publish_channel_id", None)
