@@ -453,6 +453,11 @@ def main():
     )
     application.add_handler(
         CallbackQueryHandler(
+            quiz_handler.handle_inline_answer, pattern="^inline_ans_"
+        )
+    )
+    application.add_handler(
+        CallbackQueryHandler(
             channel_handler.channel_menu, pattern="^channel_menu$"
         )
     )

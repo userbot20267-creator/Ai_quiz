@@ -692,6 +692,33 @@ class QuizHandler:
         ) 
         
 
+    async def handle_inline_answer(
+        self, update: Update, context: ContextTypes.DEFAULT_TYPE
+    ):
+        query = update.callback_query
+        user = update.effective_user
+        db = context.bot_data.get("db")
+        
+        # inline_ans_quizid_questionid_answer
+        parts = query.data.split("_")
+        quiz_id = int(parts[2])
+        question_id = int(parts[3])
+        user_answer = parts[4]
+        
+        question = await db.get_question(question_id)
+        if not question:
+            await query.answer("❌ السؤال غير موجود")
+            return
+            
+        is_correct = question["correct_answer"].lower() == user_answer.lower()
+        
+        # Save answer to DB (assuming we have a table for this or just log it)
+        # For now, let's just answer the query
+        if is_correct:
+            await query.answer("✅ إجابة صحيحة!", show_alert=True)
+        else:
+            await query.answer("❌ إجابة خاطئة!", show_alert=True)
+
     @check_ban
     async def take_quiz(
         self, update: Update, context: ContextTypes.DEFAULT_TYPE
