@@ -142,6 +142,46 @@ class ChannelHandler:
             reply_markup=back_to_menu_keyboard(language),
         )
 
+    async def add_force(
+        self, update: Update, context: ContextTypes.DEFAULT_TYPE
+    ):
+        user = update.effective_user
+        db = context.bot_data.get("db")
+        language = await self._get_language(user.id, context)
+
+        if user.id not in config.ADMINS:
+            return
+
+        if not context.args:
+            await update.message.reply_text(
+                "📢 أرسل معرف القناة للاشتراك الإجباري:\n"
+                "<code>/add_force @channel_username</code>",
+                parse_mode=ParseMode.HTML,
+            )
+            return
+
+        channel_id = context.args[0]
+
+        try:
+            chat = await context.bot.get_chat(channel_id)
+            await db.add_force_channel(
+                chat.id,
+                chat.title or "Unknown",
+                chat.username or "",
+            )
+
+            await update.message.reply_text(
+                f"✅ تم إضافة القناة للاشتراك الإجباري: {chat.title or 'Unknown'}",
+                reply_markup=back_to_menu_keyboard(language),
+            )
+
+        except Exception as e:
+            logger.error(f"Add force channel error: {e}")
+            await update.message.reply_text(
+                f"❌ خطأ: {str(e)}",
+                reply_markup=back_to_menu_keyboard(language),
+            )
+
     async def bot_added_to_chat(
         self, update: Update, context: ContextTypes.DEFAULT_TYPE
     ):

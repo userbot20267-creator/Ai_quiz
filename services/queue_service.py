@@ -39,12 +39,14 @@ class QueueService:
             pending = await db.get_pending_queue()
 
             for item in pending[:5]:
+                await db.update_queue_status(item["queue_id"], "processing")
+                
                 success, error = await self.publish_service.publish_quiz(
                     item["quiz_id"], item["channel_id"]
                 )
                 if success:
                     await db.update_queue_status(
-                        item["queue_id"], "published"
+                        item["queue_id"], "done"
                     )
                 else:
                     await db.update_queue_status(

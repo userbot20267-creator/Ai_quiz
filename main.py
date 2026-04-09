@@ -353,10 +353,16 @@ def main():
         CommandHandler("add_quiz", quiz_handler.quick_add_quiz)
     )
     application.add_handler(
+        CommandHandler("add_quiz_bulk", quiz_handler.add_quiz_bulk)
+    )
+    application.add_handler(
         CommandHandler("my_quizzes", quiz_handler.my_quizzes)
     )
     application.add_handler(
         CommandHandler("add_channel", channel_handler.add_channel)
+    )
+    application.add_handler(
+        CommandHandler("add_force", channel_handler.add_force)
     )
     application.add_handler(
         CommandHandler("my_channels", channel_handler.my_channels)
@@ -366,6 +372,21 @@ def main():
     )
     application.add_handler(
         CommandHandler("admin", admin_handler.admin_panel)
+    )
+    application.add_handler(
+        CommandHandler("all_users", admin_handler.all_users)
+    )
+    application.add_handler(
+        CommandHandler("all_quizzes", admin_handler.all_quizzes)
+    )
+    application.add_handler(
+        CommandHandler("del_quiz", admin_handler.del_quiz)
+    )
+    application.add_handler(
+        CommandHandler("ban", admin_handler.ban)
+    )
+    application.add_handler(
+        CommandHandler("unban", admin_handler.unban)
     )
     application.add_handler(
         CommandHandler("language", settings_handler.change_language)
@@ -402,6 +423,11 @@ def main():
     )
     application.add_handler(
         CallbackQueryHandler(
+            start_handler.check_subscription, pattern="^check_subscription$"
+        )
+    )
+    application.add_handler(
+        CallbackQueryHandler(
             quiz_handler.quiz_menu, pattern="^quiz_menu$"
         )
     )
@@ -428,6 +454,11 @@ def main():
     application.add_handler(
         CallbackQueryHandler(
             quiz_handler.answer_question, pattern="^ans_"
+        )
+    )
+    application.add_handler(
+        CallbackQueryHandler(
+            quiz_handler.handle_inline_answer, pattern="^inline_ans_"
         )
     )
     application.add_handler(
