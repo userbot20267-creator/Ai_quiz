@@ -416,6 +416,73 @@ class QuizHandler:
             )
         return ConversationHandler.END
 
+    async def add_quiz_bulk(
+        self, update: Update, context: ContextTypes.DEFAULT_TYPE
+    ):
+        user = update.effective_user
+        db = context.bot_data.get("db")
+        language = await self._get_language(user.id, context)
+
+        text = update.message.text.replace("/add_quiz_bulk", "", 1).strip()
+        if not text:
+            await update.message.reply_text(
+                "📝 <b>إضافة عدة أسئلة:</b>\n"
+                "أرسل كل سؤال في سطر جديد بالصيغة التالية:\n"
+                "<code>الإجابة; السؤال; خيار1; خيار2; خيار3; خيار4</code>",
+                parse_mode=ParseMode.HTML,
+            )
+            return
+
+        lines = text.split("\n")
+        added_count = 0
+        
+        # Get or create "أسئلة سريعة" quiz
+        quizzes = await db.get_user_quizzes(user.id)
+        quick_quiz = next((q for q in quizzes if q["title"] in ["Quick Quiz", "أسئلة سريعة"]), None)
+        
+        if not quick_quiz:
+            title = "أسئلة سريعة" if language == "ar" else "Quick Quiz"
+            quiz_id = await db.create_quiz(user.id, title, "", "general")
+        else:
+            quiz_id = quick_quiz["quiz_id"]
+
+        for line in lines:
+            line = line.strip()
+            if not line: continue
+            
+            parsed = parse_quick_quiz(line)
+            if not parsed: continue
+
+            correct_answer = parsed["correct_answer"].lower().strip()
+            options = [parsed["option_a"], parsed["option_b"], parsed["option_c"], parsed["option_d"]]
+            answer_letter = "a"
+            for i, opt in enumerate(options):
+                if opt and opt.lower().strip() == correct_answer:
+                    answer_letter = ["a", "b", "c", "d"][i]
+                    break
+            
+            count = await db.get_question_count(quiz_id)
+            await db.add_question(
+                quiz_id=quiz_id,
+                question_text=parsed["question_text"],
+                question_type="multiple_choice",
+                option_a=parsed["option_a"],
+                option_b=parsed["option_b"],
+                correct_answer=answer_letter,
+                option_c=parsed["option_c"],
+                option_d=parsed["option_d"],
+                order_num=count,
+            )
+            added_count += 1
+
+        if added_count > 0:
+            await update.message.reply_text(
+                f"✅ تم إضافة {added_count} سؤال بنجاح إلى 'أسئلة سريعة'!",
+                reply_markup=quiz_actions_keyboard(quiz_id, language),
+            )
+        else:
+            await update.message.reply_text("❌ لم يتم العثور على أسئلة صالحة. تأكد من الصيغة.")
+
     async def quick_add_quiz(
         self, update: Update, context: ContextTypes.DEFAULT_TYPE
     ):
