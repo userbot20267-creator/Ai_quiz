@@ -64,6 +64,34 @@ class AdminHandler:
         await update.message.reply_text(text, parse_mode=ParseMode.HTML)
 
     @admin_only
+    async def ban(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
+        if not context.args:
+            await update.message.reply_text("⚠️ يرجى إرسال ID المستخدم: <code>/ban 123456</code>", parse_mode=ParseMode.HTML)
+            return
+        
+        try:
+            user_id = int(context.args[0])
+            db = context.bot_data.get("db")
+            await db.ban_user(user_id)
+            await update.message.reply_text(f"✅ تم حظر المستخدم {user_id} بنجاح.")
+        except ValueError:
+            await update.message.reply_text("❌ ID غير صالح.")
+
+    @admin_only
+    async def unban(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
+        if not context.args:
+            await update.message.reply_text("⚠️ يرجى إرسال ID المستخدم: <code>/unban 123456</code>", parse_mode=ParseMode.HTML)
+            return
+        
+        try:
+            user_id = int(context.args[0])
+            db = context.bot_data.get("db")
+            await db.unban_user(user_id)
+            await update.message.reply_text(f"✅ تم إلغاء حظر المستخدم {user_id} بنجاح.")
+        except ValueError:
+            await update.message.reply_text("❌ ID غير صالح.")
+
+    @admin_only
     async def del_quiz(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         if not context.args:
             await update.message.reply_text("⚠️ يرجى إرسال ID الاختبار: <code>/del_quiz 123</code>", parse_mode=ParseMode.HTML)

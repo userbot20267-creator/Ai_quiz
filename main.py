@@ -383,6 +383,12 @@ def main():
         CommandHandler("del_quiz", admin_handler.del_quiz)
     )
     application.add_handler(
+        CommandHandler("ban", admin_handler.ban)
+    )
+    application.add_handler(
+        CommandHandler("unban", admin_handler.unban)
+    )
+    application.add_handler(
         CommandHandler("language", settings_handler.change_language)
     )
     application.add_handler(

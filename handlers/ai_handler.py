@@ -8,6 +8,7 @@ from locales import get_text
 from keyboards.main_keyboards import back_to_menu_keyboard
 from keyboards.quiz_keyboards import quiz_actions_keyboard
 from services.ai_service import AIService
+from utils.decorators import check_ban
 
 logger = logging.getLogger(__name__)
 
@@ -29,6 +30,7 @@ class AIHandler:
             return await db.check_ai_limit(user_id, config.MAX_AI_REQUESTS_PER_USER)
         return True
 
+    @check_ban
     async def ai_menu(
         self, update: Update, context: ContextTypes.DEFAULT_TYPE
     ):
@@ -264,6 +266,7 @@ class AIHandler:
                 parse_mode=ParseMode.HTML,
             )
 
+    @check_ban
     async def generate_quiz(
         self, update: Update, context: ContextTypes.DEFAULT_TYPE
     ):
