@@ -25,7 +25,7 @@ class StartHandler:
 
             if await db.is_banned(user.id):
                 await update.message.reply_text(
-                    "⛔ تم حظرك من استخدام البوت!"
+                    "❌ تم حظرك من استخدام البوت"
                 )
                 return
 
@@ -67,12 +67,35 @@ class StartHandler:
                     link_data = await db.get_quiz_link(code)
                     if link_data:
                         await db.increment_link_clicks(code)
-                        context.user_data["take_quiz_id"] = link_data[
-                            "quiz_id"
-                        ]
-                        # Will be handled by quiz handler
+                        quiz_id = link_data["quiz_id"]
+                        
+                        from handlers.quiz_handler import QuizHandler
+                        quiz_handler = QuizHandler()
+                        
+                        # Create a dummy update/query to reuse take_quiz logic
+                        # Or better, implement a direct method in QuizHandler
+                        questions = await db.get_quiz_questions(quiz_id)
+                        if not questions:
+                            await update.message.reply_text("❌ لا توجد أسئلة في هذا الاختبار!")
+                            return
+
+                        context.user_data["taking_quiz"] = {
+                            "quiz_id": quiz_id,
+                            "current": 0,
+                            "score": 0,
+                            "total": len(questions),
+                            "questions": questions,
+                        }
+
+                        from keyboards.quiz_keyboards import answer_keyboard
+                        language = await db.get_user_language(user.id)
+                        q = questions[0]
+                        text = f"❓ <b>السؤال 1/{len(questions)}</b>\n\n{q['question_text']}"
+                        
                         await update.message.reply_text(
-                            "🎯 جاري تحميل الاختبار..."
+                            text,
+                            reply_markup=answer_keyboard(q, quiz_id, 0, language),
+                            parse_mode=ParseMode.HTML,
                         )
                         return
 
