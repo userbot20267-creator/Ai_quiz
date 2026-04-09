@@ -374,6 +374,15 @@ def main():
         CommandHandler("admin", admin_handler.admin_panel)
     )
     application.add_handler(
+        CommandHandler("all_users", admin_handler.all_users)
+    )
+    application.add_handler(
+        CommandHandler("all_quizzes", admin_handler.all_quizzes)
+    )
+    application.add_handler(
+        CommandHandler("del_quiz", admin_handler.del_quiz)
+    )
+    application.add_handler(
         CommandHandler("language", settings_handler.change_language)
     )
     application.add_handler(

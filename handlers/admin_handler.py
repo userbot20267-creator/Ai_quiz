@@ -35,6 +35,50 @@ class AdminHandler:
                 parse_mode=ParseMode.HTML,
             )
 
+    @admin_only
+    async def all_users(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
+        db = context.bot_data.get("db")
+        users = await db.get_all_users()
+        text = f"👥 <b>قائمة جميع المستخدمين ({len(users)})</b>\n\n"
+        for u in users[:50]:
+            status = "🚫" if u["is_banned"] else "✅"
+            name = u.get("first_name", "") or u.get("username", "Unknown")
+            text += f"{status} {name} (ID: <code>{u['user_id']}</code>)\n"
+        
+        if len(users) > 50:
+            text += f"\n... و {len(users) - 50} مستخدم آخر"
+            
+        await update.message.reply_text(text, parse_mode=ParseMode.HTML)
+
+    @admin_only
+    async def all_quizzes(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
+        db = context.bot_data.get("db")
+        quizzes = await db.get_all_quizzes()
+        text = f"📝 <b>قائمة جميع الاختبارات ({len(quizzes)})</b>\n\n"
+        for q in quizzes[:50]:
+            text += f"• {q['title']} (ID: <code>{q['quiz_id']}</code>) - بواسطة: {q['user_id']}\n"
+            
+        if len(quizzes) > 50:
+            text += f"\n... و {len(quizzes) - 50} اختبار آخر"
+            
+        await update.message.reply_text(text, parse_mode=ParseMode.HTML)
+
+    @admin_only
+    async def del_quiz(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
+        if not context.args:
+            await update.message.reply_text("⚠️ يرجى إرسال ID الاختبار: <code>/del_quiz 123</code>", parse_mode=ParseMode.HTML)
+            return
+        
+        quiz_id = int(context.args[0])
+        db = context.bot_data.get("db")
+        quiz = await db.get_quiz(quiz_id)
+        
+        if quiz:
+            await db.delete_quiz(quiz_id)
+            await update.message.reply_text(f"✅ تم حذف الاختبار '{quiz['title']}' بنجاح.")
+        else:
+            await update.message.reply_text("❌ لم يتم العثور على الاختبار.")
+
     async def admin_callback(
         self, update: Update, context: ContextTypes.DEFAULT_TYPE
     ):

@@ -164,6 +164,11 @@ class DatabaseManager:
             row = await cursor.fetchone()
             return row[0]
 
+    async def get_all_quizzes(self):
+        async with self.db.execute("SELECT * FROM quizzes ORDER BY created_at DESC") as cursor:
+            rows = await cursor.fetchall()
+            return [dict(row) for row in rows]
+
     async def delete_quiz(self, quiz_id):
         await self.db.execute(
             "DELETE FROM questions WHERE quiz_id=?", (quiz_id,)
