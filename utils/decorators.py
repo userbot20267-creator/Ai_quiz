@@ -22,6 +22,38 @@ def admin_only(func):
     return wrapper
 
 
+def rate_limit(func):
+    @functools.wraps(func)
+    async def wrapper(self_or_update, update_or_context=None, context=None, *args, **kwargs):
+        if context is None:
+            update = self_or_update
+            ctx = update_or_context
+            self = None
+        else:
+            self = self_or_update
+            update = update_or_context
+            ctx = context
+
+        user_id = update.effective_user.id
+        protection = ctx.bot_data.get("protection")
+        
+        if protection:
+            if not protection.check_rate_limit(user_id):
+                msg = "❌ لقد تجاوزت الحد المسموح، حاول لاحقًا"
+                if update.callback_query:
+                    await update.callback_query.answer(msg, show_alert=True)
+                elif update.message:
+                    await update.message.reply_text(msg)
+                return
+
+        if self is not None:
+            return await func(self, update, ctx, *args, **kwargs)
+        else:
+            return await func(self_or_update, update_or_context, *args, **kwargs)
+
+    return wrapper
+
+
 def owner_only(func):
     @functools.wraps(func)
     async def wrapper(self, update, context, *args, **kwargs):

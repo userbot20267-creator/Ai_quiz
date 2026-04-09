@@ -16,7 +16,7 @@ from keyboards.quiz_keyboards import (
 from keyboards.main_keyboards import back_to_menu_keyboard
 from utils.helpers import parse_quick_quiz, calculate_score
 from services.quiz_service import QuizService
-from utils.decorators import check_ban
+from utils.decorators import check_ban, rate_limit
 
 logger = logging.getLogger(__name__)
 
@@ -41,6 +41,7 @@ class QuizHandler:
         return "ar"
 
     @check_ban
+    @rate_limit
     async def start_create_quiz(
         self, update: Update, context: ContextTypes.DEFAULT_TYPE
     ):
@@ -419,6 +420,7 @@ class QuizHandler:
         return ConversationHandler.END
 
     @check_ban
+    @rate_limit
     async def add_quiz_bulk(
         self, update: Update, context: ContextTypes.DEFAULT_TYPE
     ):
@@ -487,6 +489,7 @@ class QuizHandler:
             await update.message.reply_text("❌ لم يتم العثور على أسئلة صالحة. تأكد من الصيغة.")
 
     @check_ban
+    @rate_limit
     async def quick_add_quiz(
         self, update: Update, context: ContextTypes.DEFAULT_TYPE
     ):
