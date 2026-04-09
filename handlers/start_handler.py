@@ -132,6 +132,33 @@ class StartHandler:
             parse_mode=ParseMode.HTML,
         )
 
+    async def check_subscription(
+        self, update: Update, context: ContextTypes.DEFAULT_TYPE
+    ):
+        query = update.callback_query
+        await query.answer()
+        
+        user = update.effective_user
+        db = context.bot_data.get("db")
+        
+        force_channels = await db.get_force_channels()
+        not_subscribed = []
+        for ch in force_channels:
+            try:
+                member = await context.bot.get_chat_member(
+                    chat_id=ch["channel_id"], user_id=user.id
+                )
+                if member.status in ("left", "kicked"):
+                    not_subscribed.append(ch)
+            except Exception:
+                not_subscribed.append(ch)
+
+        if not_subscribed:
+            await query.answer("❌ يجب الاشتراك في جميع القنوات أولاً!", show_alert=True)
+        else:
+            await query.edit_message_text("✅ شكراً لاشتراكك! يمكنك الآن استخدام البوت.")
+            await self.start(update, context)
+
     async def help_command(
         self, update: Update, context: ContextTypes.DEFAULT_TYPE
     ):

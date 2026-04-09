@@ -423,6 +423,11 @@ def main():
     )
     application.add_handler(
         CallbackQueryHandler(
+            start_handler.check_subscription, pattern="^check_subscription$"
+        )
+    )
+    application.add_handler(
+        CallbackQueryHandler(
             quiz_handler.quiz_menu, pattern="^quiz_menu$"
         )
     )
