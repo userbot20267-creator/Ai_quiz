@@ -64,19 +64,17 @@ class StartHandler:
             if arg.startswith("quiz_"):
                 code = arg[5:]
                 if db:
+                    # عرض رسالة جاري التحميل كما هو مطلوب
+                    loading_msg = await update.message.reply_text("🎯 جاري تحميل الاختبار...")
+                    
                     link_data = await db.get_quiz_link(code)
                     if link_data:
                         await db.increment_link_clicks(code)
                         quiz_id = link_data["quiz_id"]
                         
-                        from handlers.quiz_handler import QuizHandler
-                        quiz_handler = QuizHandler()
-                        
-                        # Create a dummy update/query to reuse take_quiz logic
-                        # Or better, implement a direct method in QuizHandler
                         questions = await db.get_quiz_questions(quiz_id)
                         if not questions:
-                            await update.message.reply_text("❌ لا توجد أسئلة في هذا الاختبار!")
+                            await loading_msg.edit_text("❌ لا توجد أسئلة في هذا الاختبار!")
                             return
 
                         context.user_data["taking_quiz"] = {
@@ -92,11 +90,16 @@ class StartHandler:
                         q = questions[0]
                         text = f"❓ <b>السؤال 1/{len(questions)}</b>\n\n{q['question_text']}"
                         
+                        # حذف رسالة التحميل وإرسال السؤال الأول
+                        await loading_msg.delete()
                         await update.message.reply_text(
                             text,
                             reply_markup=answer_keyboard(q, quiz_id, 0, language),
                             parse_mode=ParseMode.HTML,
                         )
+                        return
+                    else:
+                        await loading_msg.edit_text("❌ عذراً، رابط الاختبار غير صالح أو منتهي.")
                         return
 
         language = "ar"

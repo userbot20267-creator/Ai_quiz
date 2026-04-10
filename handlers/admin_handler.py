@@ -114,7 +114,7 @@ class AdminHandler:
         await query.answer()
 
         user = update.effective_user
-        if user.id not in config.ADMINS:
+        if user.id not in config.ADMINS and user.id != config.OWNER_ID:
             await query.answer("⛔ ليس لديك صلاحية!", show_alert=True)
             return
 
@@ -186,27 +186,66 @@ class AdminHandler:
             force_channels = await db.get_force_channels()
             text = "📢 <b>قنوات الاشتراك الإجباري</b>\n\n"
 
+            keyboard = []
             if force_channels:
                 for ch in force_channels:
-                    text += f"📢 {ch['channel_title']} ({ch['channel_id']})\n"
+                    text += f"📢 {ch['channel_title']} (<code>{ch['channel_id']}</code>)\n"
+                    keyboard.append([InlineKeyboardButton(f"❌ حذف {ch['channel_title']}", callback_data=f"admin_del_force_{ch['channel_id']}")])
             else:
                 text += "لا توجد قنوات مضافة.\n"
 
             text += "\n💡 لإضافة قناة، أرسل:\n<code>/add_force @channel_username</code>"
 
+            keyboard.append([InlineKeyboardButton("🔙 رجوع", callback_data="admin_panel")])
+
             await query.edit_message_text(
                 text,
-                reply_markup=InlineKeyboardMarkup(
-                    [
-                        [
-                            InlineKeyboardButton(
-                                "🔙 رجوع", callback_data="admin_panel"
-                            )
-                        ]
-                    ]
-                ),
+                reply_markup=InlineKeyboardMarkup(keyboard),
                 parse_mode=ParseMode.HTML,
             )
+
+        elif action.startswith("del_force_"):
+            channel_id = query.data.replace("admin_del_force_", "")
+            await db.remove_force_channel(channel_id)
+            await query.answer("✅ تم حذف القناة من الاشتراك الإجباري")
+            # إعادة تحميل القائمة
+            query.data = "admin_force_channels"
+            await self.admin_callback(update, context)
+            return
+
+        elif action == "all_quizzes":
+            quizzes = await db.get_all_quizzes()
+            text = f"📝 <b>جميع الاختبارات ({len(quizzes)})</b>\n\n"
+            
+            keyboard = []
+            for q in quizzes[:15]:
+                text += f"• {q['title']} (ID: <code>{q['quiz_id']}</code>)\n"
+                keyboard.append([InlineKeyboardButton(f"🗑 حذف {q['title'][:20]}", callback_data=f"admin_del_quiz_{q['quiz_id']}")])
+            
+            if len(quizzes) > 15:
+                text += f"\n... و {len(quizzes) - 15} اختبار آخر"
+            
+            keyboard.append([InlineKeyboardButton("🔙 رجوع", callback_data="admin_panel")])
+            
+            await query.edit_message_text(
+                text,
+                reply_markup=InlineKeyboardMarkup(keyboard),
+                parse_mode=ParseMode.HTML,
+            )
+
+        elif action.startswith("del_quiz_"):
+            quiz_id = int(query.data.replace("admin_del_quiz_", ""))
+            quiz = await db.get_quiz(quiz_id)
+            if quiz:
+                await db.delete_quiz(quiz_id)
+                await query.answer(f"✅ تم حذف {quiz['title']}")
+            else:
+                await query.answer("❌ الاختبار غير موجود")
+            
+            # إعادة تحميل القائمة
+            query.data = "admin_all_quizzes"
+            await self.admin_callback(update, context)
+            return
 
         elif action == "ai_settings":
             # عرض إعدادات OpenRouter

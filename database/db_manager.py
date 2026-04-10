@@ -337,8 +337,8 @@ class DatabaseManager:
         async with self.db.execute(
             "SELECT s.*, q.title as quiz_title, c.title as channel_title "
             "FROM schedules s "
-            "JOIN quizzes q ON s.quiz_id = q.quiz_id "
-            "JOIN channels c ON s.channel_id = c.channel_id "
+            "LEFT JOIN quizzes q ON s.quiz_id = q.quiz_id "
+            "LEFT JOIN channels c ON s.channel_id = c.channel_id "
             "WHERE s.user_id=? AND s.is_active=1",
             (user_id,),
         ) as cursor:
@@ -359,9 +359,24 @@ class DatabaseManager:
         )
         await self.db.commit()
 
+    async def update_quiz_schedule_time(self, schedule_id, new_time):
+        await self.db.execute(
+            "UPDATE schedules SET scheduled_time=? WHERE schedule_id=?",
+            (new_time, schedule_id),
+        )
+        await self.db.commit()
+
     # ─── Queue Operations ──────────────────────────────────
 
-    async def add_to_queue(self, quiz_id, channel_id, user_id, position=0, scheduled_time=None):
+    async def add_to_queue(self, quiz_id, channel_id, user_id, position=None, scheduled_time=None):
+        if position is None:
+            async with self.db.execute(
+                "SELECT MAX(position) FROM queue WHERE user_id=? AND status='pending'",
+                (user_id,),
+            ) as cursor:
+                row = await cursor.fetchone()
+                position = (row[0] or 0) + 1
+
         cursor = await self.db.execute(
             """INSERT INTO queue 
                (quiz_id, channel_id, user_id, position, scheduled_time) 
@@ -375,8 +390,8 @@ class DatabaseManager:
         async with self.db.execute(
             """SELECT q.*, qz.title as quiz_title, c.title as channel_title 
                FROM queue q 
-               JOIN quizzes qz ON q.quiz_id = qz.quiz_id 
-               JOIN channels c ON q.channel_id = c.channel_id 
+               LEFT JOIN quizzes qz ON q.quiz_id = qz.quiz_id 
+               LEFT JOIN channels c ON q.channel_id = c.channel_id 
                WHERE q.user_id=? AND q.status='pending' 
                ORDER BY q.position""",
             (user_id,),
@@ -388,8 +403,8 @@ class DatabaseManager:
         async with self.db.execute(
             """SELECT q.*, qz.title as quiz_title, c.title as channel_title 
                FROM queue q 
-               JOIN quizzes qz ON q.quiz_id = qz.quiz_id 
-               JOIN channels c ON q.channel_id = c.channel_id 
+               LEFT JOIN quizzes qz ON q.quiz_id = qz.quiz_id 
+               LEFT JOIN channels c ON q.channel_id = c.channel_id 
                WHERE q.status='pending' 
                ORDER BY q.position"""
         ) as cursor:

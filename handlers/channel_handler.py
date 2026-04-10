@@ -149,7 +149,8 @@ class ChannelHandler:
         db = context.bot_data.get("db")
         language = await self._get_language(user.id, context)
 
-        if user.id not in config.ADMINS:
+        # التحقق من أن المستخدم أدمن أو المالك
+        if user.id not in config.ADMINS and user.id != config.OWNER_ID:
             return
 
         if not context.args:
@@ -164,8 +165,23 @@ class ChannelHandler:
 
         try:
             chat = await context.bot.get_chat(channel_id)
+            
+            # التحقق من أن البوت مشرف في القناة
+            try:
+                bot_member = await context.bot.get_chat_member(chat.id, context.bot.id)
+                if bot_member.status not in ("administrator", "creator"):
+                    await update.message.reply_text(
+                        "⚠️ البوت ليس مشرفاً في هذه القناة. يرجى رفعه لرتبة مشرف أولاً."
+                    )
+                    return
+            except Exception:
+                await update.message.reply_text(
+                    "⚠️ تعذر التحقق من صلاحيات البوت. تأكد من إضافة البوت للقناة كـ مشرف."
+                )
+                return
+
             await db.add_force_channel(
-                chat.id,
+                str(chat.id),
                 chat.title or "Unknown",
                 chat.username or "",
             )
@@ -178,7 +194,7 @@ class ChannelHandler:
         except Exception as e:
             logger.error(f"Add force channel error: {e}")
             await update.message.reply_text(
-                f"❌ خطأ: {str(e)}",
+                f"❌ خطأ: {str(e)}\nتأكد من أن المعرف صحيح وأن البوت مضاف للقناة.",
                 reply_markup=back_to_menu_keyboard(language),
             )
 

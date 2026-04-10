@@ -48,6 +48,12 @@ def admin_panel_keyboard(language="ar"):
                     else "💬 Support Messages",
                     callback_data="admin_support_messages",
                 ),
+                InlineKeyboardButton(
+                    "📝 جميع الاختبارات"
+                    if language == "ar"
+                    else "📝 All Quizzes",
+                    callback_data="admin_all_quizzes",
+                ),
             ],
             [
                 InlineKeyboardButton(

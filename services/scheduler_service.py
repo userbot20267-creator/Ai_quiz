@@ -37,63 +37,60 @@ class SchedulerService:
             now = datetime.now()
 
             for schedule in schedules:
-                scheduled_time = datetime.fromisoformat(
-                    schedule["scheduled_time"]
-                )
-
-                if scheduled_time <= now:
-                    success, error = await self.publish_service.publish_quiz(
-                        schedule["quiz_id"], schedule["channel_id"]
+                try:
+                    scheduled_time = datetime.fromisoformat(
+                        schedule["scheduled_time"]
                     )
 
-                    if success:
-                        await db.update_schedule_last_published(
-                            schedule["schedule_id"]
-                        )
-                        notification = self.application.bot_data.get(
-                            "notification"
-                        )
-                        if notification:
-                            await notification.notify_publish_success(
-                                schedule["user_id"],
-                                schedule["quiz_id"],
-                                schedule["channel_id"],
-                            )
-                    else:
-                        notification = self.application.bot_data.get(
-                            "notification"
-                        )
-                        if notification:
-                            await notification.notify_publish_failed(
-                                schedule["user_id"],
-                                schedule["quiz_id"],
-                                error,
-                            )
+                    if scheduled_time <= now:
+                        # التحقق من عدم النشر المزدوج في نفس الدقيقة
+                        if schedule.get("last_published"):
+                            last_pub = datetime.fromisoformat(schedule["last_published"].replace(' ', 'T'))
+                            if (now - last_pub).total_seconds() < 60:
+                                continue
 
-                    repeat = schedule.get("repeat_type", "none")
-                    if repeat == "daily":
-                        new_time = scheduled_time + timedelta(days=1)
-                        await db.db.execute(
-                            "UPDATE schedules SET scheduled_time=? WHERE schedule_id=?",
-                            (new_time.isoformat(), schedule["schedule_id"]),
+                        success, error = await self.publish_service.publish_quiz(
+                            schedule["quiz_id"], schedule["channel_id"]
                         )
-                        await db.db.commit()
-                    elif repeat == "weekly":
-                        new_time = scheduled_time + timedelta(weeks=1)
-                        await db.db.execute(
-                            "UPDATE schedules SET scheduled_time=? WHERE schedule_id=?",
-                            (new_time.isoformat(), schedule["schedule_id"]),
-                        )
-                        await db.db.commit()
-                    elif repeat == "monthly":
-                        new_time = scheduled_time + timedelta(days=30)
-                        await db.db.execute(
-                            "UPDATE schedules SET scheduled_time=? WHERE schedule_id=?",
-                            (new_time.isoformat(), schedule["schedule_id"]),
-                        )
-                        await db.db.commit()
-                    else:
-                        await db.deactivate_schedule(schedule["schedule_id"])
+
+                        if success:
+                            await db.update_schedule_last_published(
+                                schedule["schedule_id"]
+                            )
+                            notification = self.application.bot_data.get(
+                                "notification"
+                            )
+                            if notification:
+                                await notification.notify_publish_success(
+                                    schedule["user_id"],
+                                    schedule["quiz_id"],
+                                    schedule["channel_id"],
+                                )
+                        else:
+                            notification = self.application.bot_data.get(
+                                "notification"
+                            )
+                            if notification:
+                                await notification.notify_publish_failed(
+                                    schedule["user_id"],
+                                    schedule["quiz_id"],
+                                    error,
+                                )
+
+                        repeat = schedule.get("repeat_type", "none")
+                        if repeat == "daily":
+                            new_time = scheduled_time + timedelta(days=1)
+                            await db.update_quiz_schedule_time(schedule["schedule_id"], new_time.isoformat())
+                        elif repeat == "weekly":
+                            new_time = scheduled_time + timedelta(weeks=1)
+                            await db.update_quiz_schedule_time(schedule["schedule_id"], new_time.isoformat())
+                        elif repeat == "monthly":
+                            new_time = scheduled_time + timedelta(days=30)
+                            await db.update_quiz_schedule_time(schedule["schedule_id"], new_time.isoformat())
+                        else:
+                            await db.deactivate_schedule(schedule["schedule_id"])
+                except Exception as inner_e:
+                    logger.error(f"Error processing schedule {schedule.get('schedule_id')}: {inner_e}")
 
         except Exception as e:
             logger.error(f"Schedule check error: {e}")
