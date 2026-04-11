@@ -131,7 +131,7 @@ class StartHandler:
         if db:
             language = await db.get_user_language(user.id)
 
-        is_admin = user.id in config.ADMINS
+        is_admin = user.id in config.ADMINS or user.id == config.OWNER_ID
 
         await update.message.reply_text(
             get_text("welcome", language),
@@ -152,7 +152,7 @@ class StartHandler:
         if db:
             language = await db.get_user_language(user.id)
 
-        is_admin = user.id in config.ADMINS
+        is_admin = user.id in config.ADMINS or user.id == config.OWNER_ID
 
         await query.edit_message_text(
             get_text("main_menu", language),

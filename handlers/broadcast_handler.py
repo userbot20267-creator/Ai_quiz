@@ -24,7 +24,7 @@ class BroadcastHandler:
         await query.answer()
 
         user = update.effective_user
-        if user.id not in config.ADMINS:
+        if user.id not in config.ADMINS and user.id != config.OWNER_ID:
             await query.answer("⛔ ليس لديك صلاحية!", show_alert=True)
             return ConversationHandler.END
 

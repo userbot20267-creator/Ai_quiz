@@ -2,6 +2,7 @@ import logging
 from telegram import Update
 from telegram.constants import ParseMode
 from telegram.ext import ContextTypes
+from config import config
 from locales import get_text
 from keyboards.inline_keyboards import channel_list_keyboard
 from keyboards.main_keyboards import back_to_menu_keyboard
