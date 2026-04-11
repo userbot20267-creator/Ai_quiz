@@ -61,61 +61,71 @@ class StartHandler:
         # Handle deep link
         if context.args:
             arg = context.args[0]
+            quiz_id = None
+            
             if arg.startswith("quiz_"):
                 code = arg[5:]
                 if db:
-                    # عرض رسالة جاري التحميل كما هو مطلوب
-                    loading_msg = await update.message.reply_text("🎯 جاري تحميل الاختبار...")
-                    
+                    # محاولة جلب quiz_id من الكود
                     link_data = await db.get_quiz_link(code)
                     if link_data:
-                        await db.increment_link_clicks(code)
                         quiz_id = link_data["quiz_id"]
-                        
-                        questions = await db.get_quiz_questions(quiz_id)
-                        if not questions:
-                            await loading_msg.edit_text("❌ لا توجد أسئلة في هذا الاختبار!")
-                            return
-
-                        context.user_data["taking_quiz"] = {
-                            "quiz_id": quiz_id,
-                            "current": 0,
-                            "score": 0,
-                            "total": len(questions),
-                            "questions": questions,
-                        }
-
-                        from keyboards.quiz_keyboards import answer_keyboard
-                        language = await db.get_user_language(user.id)
-                        q = questions[0]
-                        text = f"❓ <b>السؤال 1/{len(questions)}</b>\n\n{q['question_text']}"
-                        
-                        # حذف رسالة التحميل وإرسال السؤال الأول
-                        await loading_msg.delete()
-                        sent_msg = await update.message.reply_text(
-                            text,
-                            reply_markup=answer_keyboard(q, quiz_id, 0, language),
-                            parse_mode=ParseMode.HTML,
-                        )
-                        
-                        # تفعيل المؤقت للسؤال الأول (15 ثانية)
-                        scheduler = context.bot_data.get("scheduler")
-                        if scheduler:
-                            from datetime import datetime, timedelta
-                            from handlers.quiz_handler import QuizHandler
-                            quiz_handler = QuizHandler()
-                            timer_id = f"timer_{user.id}_{quiz_id}_0"
-                            scheduler.scheduler.add_job(
-                                quiz_handler.handle_question_timeout,
-                                "date",
-                                run_date=datetime.now() + timedelta(seconds=15),
-                                args=[user.id, quiz_id, 0, sent_msg.message_id],
-                                id=timer_id
-                            )
-                        return
+                        await db.increment_link_clicks(code)
                     else:
-                        await loading_msg.edit_text("❌ عذراً، رابط الاختبار غير صالح أو منتهي.")
-                        return
+                        # محاولة أخيرة: إذا كان الكود هو نفسه quiz_id (رقمي)
+                        try:
+                            quiz_id = int(code)
+                        except ValueError:
+                            pass
+            
+            if quiz_id and db:
+                # عرض رسالة جاري التحميل كما هو مطلوب
+                loading_msg = await update.message.reply_text("🎯 جاري تحميل الاختبار...")
+                
+                questions = await db.get_quiz_questions(quiz_id)
+                if not questions:
+                    await loading_msg.edit_text("❌ لا توجد أسئلة في هذا الاختبار!")
+                    return
+
+                context.user_data["taking_quiz"] = {
+                    "quiz_id": quiz_id,
+                    "current": 0,
+                    "score": 0,
+                    "total": len(questions),
+                    "questions": questions,
+                }
+
+                from keyboards.quiz_keyboards import answer_keyboard
+                language = await db.get_user_language(user.id)
+                q = questions[0]
+                text = f"❓ <b>السؤال 1/{len(questions)}</b>\n\n{q['question_text']}"
+                
+                # حذف رسالة التحميل وإرسال السؤال الأول
+                await loading_msg.delete()
+                sent_msg = await update.message.reply_text(
+                    text,
+                    reply_markup=answer_keyboard(q, quiz_id, 0, language),
+                    parse_mode=ParseMode.HTML,
+                )
+                
+                # تفعيل المؤقت للسؤال الأول (15 ثانية)
+                scheduler = context.bot_data.get("scheduler")
+                if scheduler:
+                    from datetime import datetime, timedelta
+                    from handlers.quiz_handler import QuizHandler
+                    quiz_handler = QuizHandler()
+                    timer_id = f"timer_{user.id}_{quiz_id}_0"
+                    scheduler.scheduler.add_job(
+                        quiz_handler.handle_question_timeout,
+                        "date",
+                        run_date=datetime.now() + timedelta(seconds=15),
+                        args=[user.id, quiz_id, 0, sent_msg.message_id],
+                        id=timer_id
+                    )
+                return
+            elif context.args and context.args[0].startswith("quiz_"):
+                await update.message.reply_text("❌ عذراً، رابط الاختبار غير صالح أو منتهي.")
+                return
 
         language = "ar"
         if db:

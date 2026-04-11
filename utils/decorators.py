@@ -9,7 +9,7 @@ def admin_only(func):
     @functools.wraps(func)
     async def wrapper(self, update, context, *args, **kwargs):
         user_id = update.effective_user.id
-        if user_id not in config.ADMINS:
+        if user_id not in config.ADMINS and user_id != config.OWNER_ID:
             if update.callback_query:
                 await update.callback_query.answer(
                     "⛔ ليس لديك صلاحية!", show_alert=True

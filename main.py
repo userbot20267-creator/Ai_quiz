@@ -353,7 +353,7 @@ def main():
         CommandHandler("add_quiz", quiz_handler.quick_add_quiz)
     )
     application.add_handler(
-        CommandHandler("add_quiz_bulk", quiz_handler.add_quiz_bulk)
+        CommandHandler("add_force", channel_handler.add_force)
     )
     application.add_handler(
         CommandHandler("my_quizzes", quiz_handler.my_quizzes)
