@@ -92,11 +92,26 @@ class StartHandler:
                         
                         # حذف رسالة التحميل وإرسال السؤال الأول
                         await loading_msg.delete()
-                        await update.message.reply_text(
+                        sent_msg = await update.message.reply_text(
                             text,
                             reply_markup=answer_keyboard(q, quiz_id, 0, language),
                             parse_mode=ParseMode.HTML,
                         )
+                        
+                        # تفعيل المؤقت للسؤال الأول (15 ثانية)
+                        scheduler = context.bot_data.get("scheduler")
+                        if scheduler:
+                            from datetime import datetime, timedelta
+                            from handlers.quiz_handler import QuizHandler
+                            quiz_handler = QuizHandler()
+                            timer_id = f"timer_{user.id}_{quiz_id}_0"
+                            scheduler.scheduler.add_job(
+                                quiz_handler.handle_question_timeout,
+                                "date",
+                                run_date=datetime.now() + timedelta(seconds=15),
+                                args=[user.id, quiz_id, 0, sent_msg.message_id],
+                                id=timer_id
+                            )
                         return
                     else:
                         await loading_msg.edit_text("❌ عذراً، رابط الاختبار غير صالح أو منتهي.")

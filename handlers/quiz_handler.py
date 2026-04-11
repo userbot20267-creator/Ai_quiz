@@ -499,17 +499,19 @@ class QuizHandler:
 
         text = update.message.text
         # استخراج جميع الأسطر التي تبدأ بـ /add_quiz أو تحتوي على الصيغة المطلوبة
-        lines = text.split("\n")
+        # نقوم بتقسيم النص بناءً على /add_quiz أولاً لدعم عدة أوامر في رسالة واحدة
+        parts = text.split("/add_quiz")
         quiz_lines = []
-        for line in lines:
-            line = line.strip()
-            if line.startswith("/add_quiz"):
-                # إزالة الأمر نفسه
-                content = line.replace("/add_quiz", "", 1).strip()
-                if content:
-                    quiz_lines.append(content)
-            elif ";" in line:
-                quiz_lines.append(line)
+        for part in parts:
+            part = part.strip()
+            if not part:
+                continue
+            # إذا كان الجزء يحتوي على أسطر متعددة، نأخذ كل سطر يحتوي على ";"
+            lines = part.split("\n")
+            for line in lines:
+                line = line.strip()
+                if ";" in line:
+                    quiz_lines.append(line)
 
         if not quiz_lines:
             await update.message.reply_text(
@@ -785,41 +787,52 @@ class QuizHandler:
     async def handle_question_timeout(self, user_id, quiz_id, question_idx, message_id):
         """معالجة انتهاء وقت السؤال"""
         try:
-            # إنشاء كائن Dummy Update و Context لمحاكاة الضغط على زر
-            from telegram import Update, CallbackQuery
-            from telegram.ext import ContextTypes
+            from main import application
+            from telegram.ext import CallbackContext
             
-            # نحتاج للوصول لبيانات المستخدم من خلال bot_data أو تخزينها بشكل مختلف
-            # لكن الأسهل هو استدعاء answer_question مباشرة مع بيانات معدلة
+            # إنشاء context يدوي للمستخدم
+            context = CallbackContext(application)
+            # محاولة جلب بيانات المستخدم من الـ persistence
+            if application.persistence:
+                all_user_data = await application.persistence.get_user_data()
+                user_data = all_user_data.get(user_id, {})
+                context._user_data = user_data
+            
+            # التحقق من أن المستخدم لا يزال في نفس السؤال ولم يجب عليه
+            quiz_data = context.user_data.get("taking_quiz")
+            if not quiz_data or quiz_data["quiz_id"] != quiz_id or quiz_data["current"] != question_idx:
+                return
+
+            # محاكاة تحديث (Update) للضغط على زر "timeout"
             class DummyQuery:
                 def __init__(self, user_id, message_id, data):
-                    self.from_user = type('User', (), {'id': user_id})()
-                    self.message = type('Message', (), {'message_id': message_id})()
+                    self.from_user = type('User', (), {'id': user_id, 'first_name': 'User'})()
+                    self.message = type('Message', (), {'message_id': message_id, 'chat_id': user_id})()
                     self.data = data
-                async def answer(self): pass
-                async def edit_message_text(self, *args, **kwargs):
-                    # استدعاء bot.edit_message_text مباشرة
-                    from main import application
+                async def answer(self, *args, **kwargs): pass
+                async def edit_message_text(self, text, reply_markup=None, parse_mode=None, **kwargs):
                     await application.bot.edit_message_text(
                         chat_id=user_id,
                         message_id=message_id,
-                        *args, **kwargs
+                        text=text,
+                        reply_markup=reply_markup,
+                        parse_mode=parse_mode
                     )
 
             dummy_query = DummyQuery(user_id, message_id, f"ans_{quiz_id}_{question_idx}_timeout")
-            dummy_update = type('Update', (), {'callback_query': dummy_query, 'effective_user': dummy_query.from_user})()
+            dummy_update = type('Update', (), {
+                'callback_query': dummy_query, 
+                'effective_user': dummy_query.from_user,
+                'effective_chat': type('Chat', (), {'id': user_id})()
+            })()
             
-            from main import application
-            # الحصول على context الخاص بالمستخدم
-            # ملاحظة: في python-telegram-bot v20، الـ context يتم إنشاؤه لكل تحديث
-            # سنقوم باستدعاء answer_question يدوياً
-            context = await application.persistence.get_user_data() if application.persistence else {}
-            # هذا الجزء قد يكون معقداً، الأفضل هو جعل answer_question تقبل بارامترات مباشرة
+            # استدعاء answer_question لمعالجة الانتقال للسؤال التالي
+            await self.answer_question(dummy_update, context)
             
-            # تبسيط: سنقوم فقط بتحديث الرسالة وإرسال السؤال التالي
-            # لكننا نحتاج للوصول لـ context.user_data
-            # سأقوم بتعديل answer_question لتكون أكثر مرونة لاحقاً إذا لزم الأمر
-            pass
+            # حفظ البيانات المحدثة إذا كان هناك persistence
+            if application.persistence:
+                await application.persistence.update_user_data(user_id, context.user_data)
+                
         except Exception as e:
             logger.error(f"Timeout handler error: {e}")
 
