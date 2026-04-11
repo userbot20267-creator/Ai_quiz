@@ -182,28 +182,53 @@ class PublishHandler:
         language = await self._get_language(user.id, context)
 
         quiz_id = context.user_data.get("publish_quiz_id")
+        publish_service = PublishService(db)
+        
+        quiz = await db.get_quiz(quiz_id)
+        questions = await db.get_quiz_questions(quiz_id)
 
         if context.user_data.get("publish_all_channels"):
             channels = await db.get_user_channels(user.id)
+            await query.edit_message_text("📤 جاري النشر في جميع القنوات...")
+            
+            success_count = 0
             for ch in channels:
-                await db.add_to_queue(quiz_id, ch["channel_id"], user.id)
+                success = await publish_service.publish_quiz(
+                    context.bot, quiz, questions, ch["channel_id"]
+                )
+                if success:
+                    success_count += 1
+                    await db.log_publish(quiz_id, ch["channel_id"], "success")
+                else:
+                    await db.log_publish(quiz_id, ch["channel_id"], "failed")
 
             await query.edit_message_text(
-                "✅ تم إضافة الاختبار إلى قائمة الانتظار لجميع قنواتك!\n"
-                "سيتم النشر تلقائياً خلال دقائق.",
+                f"✅ تم نشر الاختبار بنجاح في {success_count} قناة!",
                 reply_markup=back_to_menu_keyboard(language),
                 parse_mode=ParseMode.HTML,
             )
         else:
             channel_id = context.user_data.get("publish_channel_id")
-            await db.add_to_queue(quiz_id, channel_id, user.id)
-
-            await query.edit_message_text(
-                "✅ تم إضافة الاختبار إلى قائمة الانتظار (Queue) بنجاح!\n"
-                "سيتم النشر تلقائياً خلال دقائق.",
-                reply_markup=back_to_menu_keyboard(language),
-                parse_mode=ParseMode.HTML,
+            await query.edit_message_text("📤 جاري النشر في القناة...")
+            
+            success = await publish_service.publish_quiz(
+                context.bot, quiz, questions, channel_id
             )
+            
+            if success:
+                await db.log_publish(quiz_id, channel_id, "success")
+                await query.edit_message_text(
+                    "✅ تم نشر الاختبار في القناة بنجاح!",
+                    reply_markup=back_to_menu_keyboard(language),
+                    parse_mode=ParseMode.HTML,
+                )
+            else:
+                await db.log_publish(quiz_id, channel_id, "failed")
+                await query.edit_message_text(
+                    "❌ فشل نشر الاختبار. تأكد من أن البوت مشرف في القناة.",
+                    reply_markup=back_to_menu_keyboard(language),
+                    parse_mode=ParseMode.HTML,
+                )
 
         context.user_data.pop("publish_quiz_id", None)
         context.user_data.pop("publish_channel_id", None)

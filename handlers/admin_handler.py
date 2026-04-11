@@ -215,17 +215,28 @@ class AdminHandler:
 
         elif action == "all_quizzes":
             quizzes = await db.get_all_quizzes()
-            text = f"📝 <b>جميع الاختبارات ({len(quizzes)})</b>\n\n"
+            text = f"📝 <b>إدارة جميع الاختبارات ({len(quizzes)})</b>\n\n"
+            text += "هنا يمكنك عرض وحذف أي اختبار موجود في البوت:\n\n"
             
             keyboard = []
             for q in quizzes[:15]:
-                text += f"• {q['title']} (ID: <code>{q['quiz_id']}</code>)\n"
-                keyboard.append([InlineKeyboardButton(f"🗑 حذف {q['title'][:20]}", callback_data=f"admin_del_quiz_{q['quiz_id']}")])
+                # جلب معلومات المستخدم صاحب الاختبار
+                owner = await db.get_user(q['user_id'])
+                owner_name = owner.get('first_name', 'Unknown') if owner else "Unknown"
+                
+                text += f"🔹 <b>{q['title']}</b>\n"
+                text += f"👤 المالك: {owner_name} (<code>{q['user_id']}</code>)\n"
+                text += f"🆔 ID: <code>{q['quiz_id']}</code>\n"
+                text += "──────────────────\n"
+                
+                keyboard.append([
+                    InlineKeyboardButton(f"🗑 حذف: {q['title'][:15]}...", callback_data=f"admin_del_quiz_{q['quiz_id']}")
+                ])
             
             if len(quizzes) > 15:
                 text += f"\n... و {len(quizzes) - 15} اختبار آخر"
             
-            keyboard.append([InlineKeyboardButton("🔙 رجوع", callback_data="admin_panel")])
+            keyboard.append([InlineKeyboardButton("🔙 رجوع للوحة التحكم", callback_data="admin_panel")])
             
             await query.edit_message_text(
                 text,
@@ -237,14 +248,24 @@ class AdminHandler:
             quiz_id = int(query.data.replace("admin_del_quiz_", ""))
             quiz = await db.get_quiz(quiz_id)
             if quiz:
+                # حذف الاختبار من قاعدة البيانات
                 await db.delete_quiz(quiz_id)
-                await query.answer(f"✅ تم حذف {quiz['title']}")
+                await query.answer(f"✅ تم حذف '{quiz['title']}' بنجاح", show_alert=True)
+                
+                # تحديث القائمة فوراً
+                quizzes = await db.get_all_quizzes()
+                text = f"📝 <b>إدارة جميع الاختبارات ({len(quizzes)})</b>\n\n"
+                keyboard = []
+                for q in quizzes[:15]:
+                    owner = await db.get_user(q['user_id'])
+                    owner_name = owner.get('first_name', 'Unknown') if owner else "Unknown"
+                    text += f"🔹 <b>{q['title']}</b>\n👤 المالك: {owner_name}\n🆔 ID: <code>{q['quiz_id']}</code>\n──────────────────\n"
+                    keyboard.append([InlineKeyboardButton(f"🗑 حذف: {q['title'][:15]}...", callback_data=f"admin_del_quiz_{q['quiz_id']}")])
+                
+                keyboard.append([InlineKeyboardButton("🔙 رجوع للوحة التحكم", callback_data="admin_panel")])
+                await query.edit_message_text(text, reply_markup=InlineKeyboardMarkup(keyboard), parse_mode=ParseMode.HTML)
             else:
                 await query.answer("❌ الاختبار غير موجود")
-            
-            # إعادة تحميل القائمة
-            query.data = "admin_all_quizzes"
-            await self.admin_callback(update, context)
             return
 
         elif action == "ai_settings":
